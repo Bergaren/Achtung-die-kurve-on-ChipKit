@@ -202,6 +202,24 @@ void update(void){
 }
 
 
+void render_display(int x, uint8_t *data){
+	int i, j;
+
+	for(i = 0; i < 4; i++) {
+		DISPLAY_COMMAND_DATA_PORT &= ~DISPLAY_COMMAND_DATA_MASK;
+		spi_send_recv(0x22);
+		spi_send_recv(i);
+
+		spi_send_recv(x & 0xF);
+		spi_send_recv(0x10 | ((x >> 4) & 0xF));
+
+		DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
+
+		for(j = 0; j < 128; j++)
+			spi_send_recv(~data[i*128 + j]);
+}
+}
+
 void display_string(int line, char *s) {
 	int i;
 	if(line < 0 || line >= 4)
