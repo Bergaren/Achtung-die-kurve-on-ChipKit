@@ -7,6 +7,10 @@
 
 char enabledPlayers[4] = {'t','f','f','f'};
 // PORTE är leds
+int timeoutcount = 0;
+int timeoutcount2 = 0;
+
+int TURN = 2;
 
 struct player{
 	int x;
@@ -102,6 +106,12 @@ void setup(void){
 	TRISDSET = (1 << 8);
 	TRISD = TRISD & 0xFE0;
 
+	T2CON = 0x70;       //Väljer prescaling 1:256.
+    T2CONSET = 0x8000;  //Sätter igång klockan.
+    PR2 = 80000000/256/100; // Dividerar med 256 eftersom det är våran prescale.
+                            // Dessutom vill vi ha 1/10s perioder så sedan dividerar vi med 10.
+	TMR2 = 0;
+
 	init();
 }
 
@@ -147,13 +157,24 @@ void game_loop(){
 
 	render_display(0, frame);
 	while(1){
-		render_display(0, frame);
-		playerInput( players );
-		movePlayers( players );
-		drawPlayers( players );
-		//tick();
-		int i;
-		for ( i = 0; i < 1000000; i++){}
+		if((IFS(0)&0x100) == 256){
+        	timeoutcount++;
+			timeoutcount2++;
+        	IFSCLR(0) = 0x100; // Clearar precis bit 9.
+		}
+		if(timeoutcount == 6){
+			movePlayers( players );
+			drawPlayers( players );
+			render_display(0, frame);
+			timeoutcount = 0;
+		}
+
+		if (timeoutcount2 == 1){
+			playerInput( players );
+			timeoutcount2 = 0;
+		}
+
+
 	}
 }
 
@@ -171,15 +192,15 @@ void playerInput( struct player players[4] ){
 			if( valueX == 1 && valueY == 0){
 
 				int a = players[i].angle;
-				if (9 > a){
-					players[i].angle = a + 360 - 9;
+				if (TURN > a){
+					players[i].angle = a + 360 - TURN;
 				} else {
-					players[i].angle = a - 9;
+					players[i].angle = a - TURN;
 				}
 
 			}
 			if( valueX == 0 && valueY == 1){
-				players[i].angle =  (players[i].angle + 9) % 360;
+				players[i].angle =  (players[i].angle + TURN) % 360;
 			}
 		}
 	}
@@ -222,12 +243,14 @@ void movePlayers( struct player players[4] ){
 					if ( dif2 < 0 ){
 						dif2 = 0 - dif2;
 					}
-					int dif3 = a - 0;
+					int dif3 = a - 90;
 
 					if(dif3 > dif2){
 							if(dif2 > dif1){
+								// Nära 180 grader
 								players[i].y = players[i].y + 1;
 							} else {
+								// Nära 120 grader
 								players[i].x = players[i].x + 1;
 								players[i].y = players[i].y + 1;
 							}
@@ -246,7 +269,7 @@ void movePlayers( struct player players[4] ){
 					if ( dif2 < 0 ){
 						dif2 = 0 - dif2;
 					}
-					int dif3 = a - 0;
+					int dif3 = a - 180;
 
 					if(dif3 > dif2){
 							if(dif2 > dif1){
@@ -268,22 +291,26 @@ void movePlayers( struct player players[4] ){
 					if ( dif2 < 0 ){
 						dif2 = 0 - dif2;
 					}
-					int dif3 = a - 0;
+					int dif3 = a - 270;
 
 					if(dif3 > dif2){
 						if(dif2 > dif1){
-								players[i].y = players[i].y + 1;
+								// Nära 360 grader
+								players[i].y = players[i].y - 1;
 							} else {
-								players[i].x = players[i].x + 1;
-								players[i].y = players[i].y + 1;
+								// Nära 315 grader
+								players[i].x = players[i].x - 1;
+								players[i].y = players[i].y - 1;
 							}
 					} else{
 						if( dif3 < dif1 ){
-							players[i].x = players[i].x + 1;
+							// Nära 270 grader
+							players[i].x = players[i].x - 1;
 						} else {
-							players[i].y = players[i].y + 1;
+							// Nära 360 grader
+							players[i].y = players[i].y - 1;
 						}
-					}					
+					}
 				}
 			}
 
@@ -308,7 +335,7 @@ void draw(int x, int y){
 	int index = x + page * 128;
 	int w;
 	for(w = 0; w < 2; w++){
-		frame[index + w] = 3 << bitIn;
+		frame[index + w] = frame[index + w] | (3 << bitIn);
 	}
 }
 

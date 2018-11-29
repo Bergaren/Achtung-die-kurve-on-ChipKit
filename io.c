@@ -13,11 +13,11 @@ int getBtns( void ){
 }
 
 int getJyStckX(int plrNr){
-  int input = (PORTE >> (plrNr + plrNr - 1) ) & 0x1;
+      int input = (PORTE >> (plrNr + plrNr - 2) ) & 0x1;
   return input;
 }
 
 int getJyStckY(int plrNr){
-  int input = (PORTE >> (2*plrNr) ) & 0x1;
+  int input = (PORTE >> ((2*plrNr) - 1)) & 0x1;
   return input;
 }
