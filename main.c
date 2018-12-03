@@ -1,9 +1,10 @@
 #include <pic32mx.h>
 #include <stdint.h>
-#include <math.h>
+#include <stdlib.h>
 #include "display.h"
 #include "io.h"
 
+// . /opt/mcb32tools/environment
 
 char enabledPlayers[4] = {'t','f','f','f'};
 // PORTE är leds
@@ -12,10 +13,20 @@ int timeoutcount2 = 0;
 
 int TURN = 2;
 
-struct player{
+struct Player{
 	int x;
 	int y;
 	int angle;
+};
+
+struct Pair {
+    int index;
+    int bitIn;
+};
+
+struct Direction{
+	char x_axis;
+	char y_axis;
 };
 
 
@@ -46,10 +57,18 @@ uint8_t frame [] = {
 void setup(void);
 void game_loop(void);
 void menu_loop(void);
-void draw (int x, int y);
-void playerInput( struct player players[]);
-void movePlayers( struct player players[]);
-void drawPlayers( struct player players[]);
+void draw (struct Player player);
+void playerInput( struct Player players[]);
+void movePlayers( struct Player players[]);
+void drawPlayers( struct Player players[]);
+void spawn_players( struct Player players[]);
+void getSettings();
+void displaySettings();
+void collision(struct Player players[]);
+void player_collision(const int playerNr, const int x, const int y);
+struct Pair getPlayerIndex(const int x, const int y);
+struct Direction getDirection(int a);
+
 
 int main(void) {
 	setup();
@@ -115,18 +134,15 @@ void setup(void){
 	init();
 }
 
-void game_loop(){
-
-	struct player players[4];
-
-	struct player p1;
+void spawn_players( struct Player players[4] ){
+	struct Player p1;
 	p1.x = 10;
 	p1.y = 8;
 	p1.angle = 90;
 	players[0] = p1;
 
 	if(enabledPlayers[1] == 't'){
-		struct player p2;
+		struct Player p2;
 		p2.x = 118;
 		p2.y = 22;
 		p2.angle = 270;
@@ -134,7 +150,7 @@ void game_loop(){
 	}
 
 	if(enabledPlayers[2] == 't'){
-		struct player p3;
+		struct Player p3;
 		p3.x = 10;
 		p3.y = 22;
 		p3.angle = 90;
@@ -142,17 +158,24 @@ void game_loop(){
 	}
 
 	if(enabledPlayers[3] == 't'){
-		struct player p4;
+		struct Player p4;
 		p4.x = 118;
 		p4.y = 8;
 		p4.angle = 270;
 		players[3] = p4;
 	}
+}
+
+void game_loop(){
+
+	struct Player players[4];
+
+	spawn_players(players);
 
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if(enabledPlayers[i] == 't')
-			draw(players[i].x, players[i].y);
+			draw(players[i]);
 	}
 
 	render_display(0, frame);
@@ -164,6 +187,7 @@ void game_loop(){
 		}
 		if(timeoutcount == 6){
 			movePlayers( players );
+			collision( players );
 			drawPlayers( players );
 			render_display(0, frame);
 			timeoutcount = 0;
@@ -178,7 +202,42 @@ void game_loop(){
 	}
 }
 
-void playerInput( struct player players[4] ){
+void collision ( struct Player players[] ){
+
+	int i;
+	for ( i = 0; i < 4; i++ ){
+		if ( enabledPlayers[i] == 't' ){
+			player_collision(i, players[i].x, players[i].y);
+		}
+	}
+}
+
+void player_collision( const int playerNr, const int x, const int y ){
+	struct Pair t = getPlayerIndex(x,y);
+
+	int index = t.index;
+	int bitIn = t.bitIn;
+
+	uint8_t p = frame[index];
+	if( p > 0 ){
+		int collisionMask = p & (1 << bitIn);
+		if ( collisionMask ){
+			enabledPlayers[playerNr] = 'f';
+		}
+	}
+}
+
+struct Pair getPlayerIndex( const int x, const int y ){
+	int page = y / 8;
+	int bitIn = y % 8;
+
+	int index = x + page * 128;
+
+	struct Pair t = { index, bitIn };
+	return t;
+}
+
+void playerInput( struct Player players[4] ){
 
 	int i;
 	for ( i = 0; i < 4; i++ ){
@@ -207,180 +266,128 @@ void playerInput( struct player players[4] ){
 
 }
 
-void movePlayers( struct player players[4] ){
+void movePlayers( struct Player players[4] ){
 
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if ( enabledPlayers[i] == 't' ){
 
 			int a = players[i].angle;
-			if( a < 180){
-				if( a < 90 ){
-					int dif1 = 90 - a;
-					int dif2  = 45 - a;
-					if ( dif2 < 0 ){
-						dif2 = 0 - dif2;
-					}
-					int dif3 = a - 0;
+			struct Direction dir = getDirection(a);
+			if(dir.y_axis == 'n'){
+				players[i].y = players[i].y - 1;
+			} else if(dir.y_axis == 's'){
+				players[i].y = players[i].y + 1;
+			}
 
-					if(dif3 > dif2){
-							if(dif2 > dif1){
-								players[i].x = players[i].x + 1;
-							} else {
-								players[i].x = players[i].x + 1;
-								players[i].y = players[i].y - 1;
-							}
-					} else{
-						if( dif3 < dif1 ){
-							players[i].y = players[i].y - 1;
-						} else {
-							players[i].x = players[i].x + 1;
-						}
-					}
-				} else {
-					int dif1 = 180 - a;
-					int dif2  = 120 - a;
-					if ( dif2 < 0 ){
-						dif2 = 0 - dif2;
-					}
-					int dif3 = a - 90;
-
-					if(dif3 > dif2){
-							if(dif2 > dif1){
-								// Nära 180 grader
-								players[i].y = players[i].y + 1;
-							} else {
-								// Nära 120 grader
-								players[i].x = players[i].x + 1;
-								players[i].y = players[i].y + 1;
-							}
-					} else{
-						if( dif3 < dif1 ){
-							players[i].x = players[i].x + 1;
-						} else {
-							players[i].y = players[i].y + 1;
-						}
-					}
-				}
-			} else{
-				if( a < 270 ){
-					int dif1 = 270 - a;
-					int dif2  = 225 - a;
-					if ( dif2 < 0 ){
-						dif2 = 0 - dif2;
-					}
-					int dif3 = a - 180;
-
-					if(dif3 > dif2){
-							if(dif2 > dif1){
-								players[i].x = players[i].x - 1;
-							} else {
-								players[i].x = players[i].x - 1;
-								players[i].y = players[i].y + 1;
-							}
-					} else{
-						if( dif3 < dif1 ){
-							players[i].y = players[i].y + 1;
-						} else {
-							players[i].x = players[i].x - 1;
-						}
-					}
-				} else {
-					int dif1 = 360 - a;
-					int dif2  = 315 - a;
-					if ( dif2 < 0 ){
-						dif2 = 0 - dif2;
-					}
-					int dif3 = a - 270;
-
-					if(dif3 > dif2){
-						if(dif2 > dif1){
-								// Nära 360 grader
-								players[i].y = players[i].y - 1;
-							} else {
-								// Nära 315 grader
-								players[i].x = players[i].x - 1;
-								players[i].y = players[i].y - 1;
-							}
-					} else{
-						if( dif3 < dif1 ){
-							// Nära 270 grader
-							players[i].x = players[i].x - 1;
-						} else {
-							// Nära 360 grader
-							players[i].y = players[i].y - 1;
-						}
-					}
-				}
+			if(dir.x_axis == 'e'){
+				players[i].x = players[i].x + 1;
+			} else if(dir.x_axis == 'w'){
+				players[i].x = players[i].x - 1;
 			}
 
 		}
 	}
-
 }
 
-void drawPlayers( struct player players[4] ){
+struct Direction getDirection(int a){
+	struct Direction dir;
+
+	if( a > 23 && a <= 150){
+		dir.x_axis = 'e';
+	} else if ( a > 203 && a <= 338 ) {
+		dir.x_axis = 'w';
+	}
+	if (a > 293 || a <= 68){
+		dir.y_axis = 'n';
+	} else if (a <= 248 && a > 105 ) {
+		dir.y_axis = 's';
+	}
+	return dir;
+}
+
+void drawPlayers( struct Player players[4] ){
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if ( enabledPlayers[i] == 't' ){
-			draw(players[i].x,players[i].y);
+			draw(players[i]);
 		}
 	}
 }
 
-void draw(int x, int y){
-	int page = y / 8;
-	int bitIn = y % 8;
+void draw(struct Player player){
+	struct Pair t = getPlayerIndex(player.x,player.y);
+	int index = t.index;
+	int bitIn = t.bitIn;
+	int a = player.angle;
 
-	int index = x + page * 128;
-	int w;
-	for(w = 0; w < 2; w++){
-		frame[index + w] = frame[index + w] | (3 << bitIn);
+	frame[index] = frame[index] | (1 << bitIn);
+
+}
+
+void displaySettings(){
+
+	display_string(0,"Back, BTN 4");
+	//display_string(1,"Player 2 [ ]");
+	//display_string(2,"Player 3 [ ]");
+	//display_string(3,"Player 4 [ ]");
+	//update();
+
+	while(1){
+		if(enabledPlayers[1] == 't'){
+			display_string(1,"Player 2 [X]");
+		} else{
+			display_string(1,"Player 2 [ ]");
+		}
+
+		if(enabledPlayers[2] == 't'){
+			display_string(2,"Player 3 [X]");
+		} else{
+			display_string(2,"Player 3 [ ]");
+		}
+		if(enabledPlayers[3] == 't'){
+			display_string(3,"Player 4 [X]");
+		} else{
+			display_string(3,"Player 4 [ ]");
+		}
+		update();
+		getSettings();
+		if ( getBtns() == 1 ){
+			break;
+		}
 	}
 }
 
-void settings(){
-
-	display_string(0,"Back, BTN 4");
-	display_string(1,"Player 2 [ ]");
-	display_string(2,"Player 3 [ ]");
-	display_string(3,"Player 4 [ ]");
-	update();
-	while(1){
+void getSettings(){
 
 		int swInput = getSw();
 
 		if( (swInput & 0x2) == 2){
 			enabledPlayers[1] = 't';
-			display_string(1,"Player 2 [X]");
-		} else{
+		}else {
 			enabledPlayers[1] = 'f';
-			display_string(1,"Player 2 [ ]");
 		}
 
 
 		if( (swInput & 0x4) == 4){
 			enabledPlayers[2] = 't';
-			display_string(2,"Player 3 [X]");
+			//display_string(2,"Player 3 [X]");
 		} else{
 			enabledPlayers[2] = 'f';
-			display_string(2,"Player 3 [ ]");
+			//isplay_string(2,"Player 3 [ ]");
 		}
 
 		if( (swInput & 0x8) == 8){
 			enabledPlayers[3] = 't';
-			display_string(3,"Player 4 [X]");
+			//display_string(3,"Player 4 [X]");
 		} else{
 			enabledPlayers[3] = 'f';
-			display_string(3,"Player 4 [ ]");
+			//display_string(3,"Player 4 [ ]");
 		}
-		update();
 
-		if ( getBtns() == 1 ){
-			return;
-		}
-	}
 }
+
+
 
 void menu_loop(){
 
@@ -393,11 +400,13 @@ void menu_loop(){
 	while (1){
 
 		int inptBtn = getBtns();
+		getSettings();
 		if ( inptBtn == 4 ){
 			break;
 		}
+
 		if ( inptBtn == 2 ){
-			settings();
+			displaySettings();
 			display_string(0,"--Menu--");
 			display_string(1,"");
 			display_string(2,"Play (BTN4)");
