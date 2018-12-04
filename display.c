@@ -202,7 +202,7 @@ void update(void){
 }
 
 
-void render_display(int x, uint8_t *data){
+void renderDisplay(int x, uint8_t *data){
 	int i, j;
 
 	for(i = 0; i < 4; i++) {
@@ -220,7 +220,7 @@ void render_display(int x, uint8_t *data){
 }
 }
 
-void display_string(int line, char *s) {
+void displayString(int line, char *s) {
 	int i;
 	if(line < 0 || line >= 4)
 		return;

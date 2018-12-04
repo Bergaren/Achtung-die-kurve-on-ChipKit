@@ -55,34 +55,33 @@ uint8_t frame [] = {
 };
 
 void setup(void);
-void game_loop(void);
-void menu_loop(void);
+void gameLoop(void);
+void menuLoop(void);
+void displayMenu();
 void draw (struct Player player);
 void playerInput( struct Player players[]);
 void movePlayers( struct Player players[]);
 void drawPlayers( struct Player players[]);
-void spawn_players( struct Player players[]);
+void spawnPlayers( struct Player players[]);
 void getSettings();
 void displaySettings();
 void collision(struct Player players[]);
-void player_collision(const int playerNr, const int x, const int y);
+void playerCollision(const int playerNr, const int x, const int y);
 struct Pair getPlayerIndex(const int x, const int y);
 struct Direction getDirection(int a);
 
 
 int main(void) {
 	setup();
-	menu_loop();
-	game_loop();
+	menuLoop();
+	gameLoop();
 
 	return 0;
 }
 
 void setup(void){
-
 	// D - knappar och switches
 	// E - LED-lampor
-
 
 	//Kanske behövs
 	/* Set up peripheral bus clock */
@@ -107,7 +106,6 @@ void setup(void){
 	/* Set up input pins */
 	TRISDSET = (1 << 8);
 	TRISFSET = (1 << 1);
-
 	TRISESET = 0xFFFF;
 
 	/* Set up SPI as master */
@@ -127,14 +125,14 @@ void setup(void){
 
 	T2CON = 0x70;       //Väljer prescaling 1:256.
     T2CONSET = 0x8000;  //Sätter igång klockan.
-    PR2 = 80000000/256/100; // Dividerar med 256 eftersom det är våran prescale.
-                            // Dessutom vill vi ha 1/10s perioder så sedan dividerar vi med 10.
+    PR2 = 80000000/256/100; // Dividerar med 256 eftersom det är vår prescale.
+                            // Dessutom vill vi ha 1/100s perioder så sedan dividerar vi med 10.
 	TMR2 = 0;
 
 	init();
 }
 
-void spawn_players( struct Player players[4] ){
+void spawnPlayers( struct Player players[4] ){
 	struct Player p1;
 	p1.x = 10;
 	p1.y = 8;
@@ -166,11 +164,10 @@ void spawn_players( struct Player players[4] ){
 	}
 }
 
-void game_loop(){
-
+void gameLoop(){
+	// Övergripande spellogik för rörelse, kollision, rendering, input och klocka.
 	struct Player players[4];
-
-	spawn_players(players);
+	spawnPlayers(players);
 
 	int i;
 	for ( i = 0; i < 4; i++ ){
@@ -178,18 +175,19 @@ void game_loop(){
 			draw(players[i]);
 	}
 
-	render_display(0, frame);
+	renderDisplay(0, frame);
 	while(1){
 		if((IFS(0)&0x100) == 256){
         	timeoutcount++;
 			timeoutcount2++;
         	IFSCLR(0) = 0x100; // Clearar precis bit 9.
 		}
+
 		if(timeoutcount == 6){
 			movePlayers( players );
 			collision( players );
 			drawPlayers( players );
-			render_display(0, frame);
+			renderDisplay(0, frame);
 			timeoutcount = 0;
 		}
 
@@ -197,22 +195,19 @@ void game_loop(){
 			playerInput( players );
 			timeoutcount2 = 0;
 		}
-
-
 	}
 }
 
 void collision ( struct Player players[] ){
-
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if ( enabledPlayers[i] == 't' ){
-			player_collision(i, players[i].x, players[i].y);
+			playerCollision(i, players[i].x, players[i].y);
 		}
 	}
 }
 
-void player_collision( const int playerNr, const int x, const int y ){
+void playerCollision( const int playerNr, const int x, const int y ){
 	struct Pair t = getPlayerIndex(x,y);
 
 	int index = t.index;
@@ -238,7 +233,6 @@ struct Pair getPlayerIndex( const int x, const int y ){
 }
 
 void playerInput( struct Player players[4] ){
-
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if ( enabledPlayers[i] == 't' ){
@@ -263,7 +257,6 @@ void playerInput( struct Player players[4] ){
 			}
 		}
 	}
-
 }
 
 void movePlayers( struct Player players[4] ){
@@ -322,33 +315,32 @@ void draw(struct Player player){
 	int a = player.angle;
 
 	frame[index] = frame[index] | (1 << bitIn);
-
 }
 
 void displaySettings(){
 
-	display_string(0,"Back, BTN 4");
-	//display_string(1,"Player 2 [ ]");
-	//display_string(2,"Player 3 [ ]");
-	//display_string(3,"Player 4 [ ]");
+	displayString(0,"Back, BTN 4");
+	//displayString(1,"Player 2 [ ]");
+	//displayString(2,"Player 3 [ ]");
+	//displayString(3,"Player 4 [ ]");
 	//update();
 
 	while(1){
 		if(enabledPlayers[1] == 't'){
-			display_string(1,"Player 2 [X]");
+			displayString(1,"Player 2 [X]");
 		} else{
-			display_string(1,"Player 2 [ ]");
+			displayString(1,"Player 2 [ ]");
 		}
 
 		if(enabledPlayers[2] == 't'){
-			display_string(2,"Player 3 [X]");
+			displayString(2,"Player 3 [X]");
 		} else{
-			display_string(2,"Player 3 [ ]");
+			displayString(2,"Player 3 [ ]");
 		}
 		if(enabledPlayers[3] == 't'){
-			display_string(3,"Player 4 [X]");
+			displayString(3,"Player 4 [X]");
 		} else{
-			display_string(3,"Player 4 [ ]");
+			displayString(3,"Player 4 [ ]");
 		}
 		update();
 		getSettings();
@@ -371,7 +363,7 @@ void getSettings(){
 
 		if( (swInput & 0x4) == 4){
 			enabledPlayers[2] = 't';
-			//display_string(2,"Player 3 [X]");
+			//displayString(2,"Player 3 [X]");
 		} else{
 			enabledPlayers[2] = 'f';
 			//isplay_string(2,"Player 3 [ ]");
@@ -379,26 +371,26 @@ void getSettings(){
 
 		if( (swInput & 0x8) == 8){
 			enabledPlayers[3] = 't';
-			//display_string(3,"Player 4 [X]");
+			//displayString(3,"Player 4 [X]");
 		} else{
 			enabledPlayers[3] = 'f';
-			//display_string(3,"Player 4 [ ]");
+			//displayString(3,"Player 4 [ ]");
 		}
-
 }
 
+void displayMenu(){
+	displayString(0,"--Menu--");
+	displayString(1,"");
+	displayString(2,"Play (BTN4)");
+	displayString(3,"Settings (BTN3)");
+}
 
+void menuLoop(){
 
-void menu_loop(){
-
-	display_string(0,"--Menu--");
-	display_string(2,"Play (BTN4)");
-	display_string(3,"Settings (BTN3)");
+	displayMenu();
 	update();
 
-
 	while (1){
-
 		int inptBtn = getBtns();
 		getSettings();
 		if ( inptBtn == 4 ){
@@ -407,10 +399,7 @@ void menu_loop(){
 
 		if ( inptBtn == 2 ){
 			displaySettings();
-			display_string(0,"--Menu--");
-			display_string(1,"");
-			display_string(2,"Play (BTN4)");
-			display_string(3,"Settings (BTN3)");
+			displayMenu();
 			update();
 		}
 	}
