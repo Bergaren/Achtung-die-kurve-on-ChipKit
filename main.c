@@ -6,7 +6,9 @@
 
 // . /opt/mcb32tools/environment
 
-char enabledPlayers[4] = {'t','f','f','f'};
+char enabledPlayers[4];
+int playerCount = 1;
+int deadPlayers = 0;
 // PORTE är leds
 int timeoutcount = 0;
 int timeoutcount2 = 0;
@@ -29,7 +31,7 @@ struct Direction{
 	char y_axis;
 };
 
-uint8_t frame [] = {
+uint8_t frame[512] = {
 	//PAGE 0
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -46,7 +48,7 @@ uint8_t frame [] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	//PAGE 3
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -64,17 +66,38 @@ void spawnPlayers( struct Player players[]);
 void getSettings();
 void displaySettings();
 void collision(struct Player players[]);
+void wallCollision(const int playerNr, const int x, const int y);
 void playerCollision(const int playerNr, const int x, const int y, const int playerAngle);
 struct Pair getPlayerIndex(const int x, const int y);
 struct Direction getDirection(int a);
+void cntDown();
+void clearScreen();
+void drawChar(int x, int y, char c);
+int winnerExists();
+void killPlayer(int playerNr);
+void gameOver();
 
+char enabledPlayers[4] = {'t','f','f','f'};
+int playerCount;
+int deadPlayers;
+// PORTE är leds
+int timeoutcount;
+int timeoutcount2;
 
 int main(void) {
-	setup();
-	menuLoop();
-	gameLoop();
-
+	while(1){
+		setup();
+		menuLoop();
+		gameLoop();
+	}
 	return 0;
+}
+
+void clearScreen(){
+	int i;
+	for ( i = 0; i < 512; i++ ){
+		frame[i] = 0;
+	}
 }
 
 void setup(void){
@@ -125,6 +148,13 @@ void setup(void){
                             // Divide by 100 since we want periods of 1/100s.
 	TMR2 = 0;
 
+	enabledPlayers[0] = 't';
+	playerCount = 1;
+	deadPlayers = 0;
+	// PORTE är leds
+	timeoutcount = 0;
+	timeoutcount2 = 0;
+	clearScreen();
 	init();
 }
 
@@ -141,6 +171,7 @@ void spawnPlayers( struct Player players[4] ){
 		p2.y = 22;
 		p2.angle = 270;
 		players[1] = p2;
+		playerCount++;
 	}
 
 	if(enabledPlayers[2] == 't'){
@@ -149,6 +180,7 @@ void spawnPlayers( struct Player players[4] ){
 		p3.y = 22;
 		p3.angle = 90;
 		players[2] = p3;
+		playerCount++;
 	}
 
 	if(enabledPlayers[3] == 't'){
@@ -157,6 +189,7 @@ void spawnPlayers( struct Player players[4] ){
 		p4.y = 8;
 		p4.angle = 270;
 		players[3] = p4;
+		playerCount++;
 	}
 }
 
@@ -164,8 +197,10 @@ void gameLoop(){
 
 	// General logic for movement, collision, rendering, input and timing.
 	struct Player players[4];
-	spawnPlayers(players);
 
+	cntDown();
+
+	spawnPlayers(players);
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if(enabledPlayers[i] == 't')
@@ -186,6 +221,10 @@ void gameLoop(){
 			drawPlayers( players );
 			renderDisplay(0, frame);
 			timeoutcount = 0;
+			if(winnerExists() == 1){
+				gameOver();
+				return;
+			}
 		}
 
 		if (timeoutcount2 == 1){
@@ -193,6 +232,73 @@ void gameLoop(){
 			timeoutcount2 = 0;
 		}
 	}
+}
+
+void gameOver(){
+	clearScreen();
+	int i;
+	int winner;
+	for ( i = 0; i < 4; i++ ){
+		if ( enabledPlayers[i]=='t'){
+			winner = i+1;
+			break;
+		}
+	}
+	if (winner == 1 ){
+		displayString(1, "p1 is winner!");
+	} else if (winner == 2 ){
+		displayString(1, "p2 is winner!");
+	} else if (winner == 3 ){
+		displayString(1, "p3 is winner!");
+	} else if (winner == 4 ){
+		displayString(1, "p4 is winner!");
+	} else {
+		displayString(1, "You died!");
+	}
+	displayString(0,"");
+	displayString(2,"");
+	displayString(3,"BTN4 for menu...");
+	update();
+	while(1){
+		if ( getBtns() == 4 ){
+			return;
+		}
+	}
+}
+
+void cntDown(){
+	//
+	// int timeout = 0;
+	// while(1){
+	// 	if((IFS(0)&0x100) == 256){
+    //     	timeout++;
+	// 		IFSCLR(0) = 0x100; // Clears bit 9.
+	// 	}
+	// 	if(timeout = 10000000){
+	// 		break;
+	// 	}
+	// }
+	//clearScreen();
+	displayString(1,"");
+	displayString(2,"");
+
+	if( enabledPlayers[0] == 't' && enabledPlayers[2] == 't'){
+		displayString(0,"p1         p3");
+	}
+	if( enabledPlayers[0] == 't'){
+		displayString(0,"p1");
+	}
+	if( enabledPlayers[2] == 't' && enabledPlayers[1] == 't'){
+		displayString(3,"p4         p2");
+	}
+	if( enabledPlayers[3] == 't') {
+		displayString(3,"p4           ");
+	}
+	if( enabledPlayers[1] == 't') {
+		displayString(3,"             p2");
+	}
+	update();
+	delay(10000000);
 }
 
 void collision ( struct Player players[] ){
@@ -203,7 +309,14 @@ void collision ( struct Player players[] ){
 		if ( enabledPlayers[i] == 't' ){
 			playerAngle = players[i].angle;
 			playerCollision(i, players[i].x, players[i].y, playerAngle);
+			wallCollision(i, players[i].x, players[i].y);
 		}
+	}
+}
+
+void wallCollision(const int playerNr, const int x, const int y){
+	if(x < 0 || x > 128 || y < 0){
+		killPlayer(playerNr);
 	}
 }
 
@@ -216,23 +329,36 @@ void playerCollision( const int playerNr, const int x, const int y, const int an
 	int index = t.index;
 	int bitIn = t.bitIn;
 
-// 0 0 0 0
-// 0 1 1 0
-// 1 1 1 0
-// 1 1 0 0
-
 	uint8_t p = frame[index];
 
 	int d = 1;
 
-	// SÖDER OCH NORR FUNKAR
-	// WEST OCH OST FUNKAR
-
 	if( p > 0 ){
 		int collisionMask = p & (d << bitIn);
 		if ( collisionMask ){
-			enabledPlayers[playerNr] = 'f';
+			killPlayer(playerNr);
 		}
+	}
+}
+
+void killPlayer(int playerNr){
+	enabledPlayers[playerNr] = 'f';
+	deadPlayers++;
+}
+
+int winnerExists(){
+	if ( playerCount > 1 ) {
+		// Multi-player case
+		if ((playerCount - deadPlayers) == 1) {
+			return 1;
+		} else {
+			return 0;
+		}
+	} else if ( deadPlayers == 1 ){
+		// Single-player case
+		return 1;
+	} else {
+		return 0;
 	}
 }
 
@@ -333,12 +459,6 @@ void drawPlayers( struct Player players[4] ){
 	}
 }
 
-// 1 1 0 0
-// 1 1 1 0
-// 0 1 1 0
-// 0 0 0 0
-
-
 void draw(struct Player player){
 	struct Pair t = getPlayerIndex(player.x,player.y);
 	int index = t.index;
@@ -359,8 +479,13 @@ void draw(struct Player player){
 		if (dir.x_axis == 'w'){
 			bitIn = bitIn - 1;
 		} else if (dir.x_axis == 'e'){
-		bitIn = bitIn - 1;
-		index = index - 1;
+			bitIn = bitIn - 1;
+			index = index - 1;
+
+		}
+		if ( bitIn < 0 ){
+			bitIn = 7;
+			index = index - 128;
 		}
 	}
 
@@ -370,6 +495,9 @@ void draw(struct Player player){
 
 	int i;
 	for( i = 0; i < w; i++){
+		if (bitIn >= 7 && d > 1) {
+			frame[index+ i + 128] = frame[index + i + 128] | 1;
+		}
 		frame[index+i] = frame[index+i] | (d << bitIn);
 	}
 }
