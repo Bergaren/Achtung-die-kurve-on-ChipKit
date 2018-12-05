@@ -1,3 +1,4 @@
 int getSw( void );
 int getBtns( void );
-int getJyStck1( void );
+int getJyStckY( int plrNr );
+int getJyStckX( int plrNr );

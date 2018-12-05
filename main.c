@@ -64,7 +64,7 @@ void spawnPlayers( struct Player players[]);
 void getSettings();
 void displaySettings();
 void collision(struct Player players[]);
-void playerCollision(const int playerNr, const int x, const int y);
+void playerCollision(const int playerNr, const int x, const int y, const int playerAngle);
 struct Pair getPlayerIndex(const int x, const int y);
 struct Direction getDirection(int a);
 
@@ -78,10 +78,9 @@ int main(void) {
 }
 
 void setup(void){
-	// D - knappar och switches
-	// E - LED-lampor
+	// D - Buttons and switches
+	// E - LEDs
 
-	//Kanske behövs
 	/* Set up peripheral bus clock */
 	OSCCON &= ~0x180000;
 	OSCCON |= 0x080000;
@@ -134,7 +133,7 @@ void spawnPlayers( struct Player players[4] ){
 	p1.x = 10;
 	p1.y = 8;
 	p1.angle = 90;
-	players[0] = p1
+	players[0] = p1;
 
 	if(enabledPlayers[1] == 't'){
 		struct Player p2;
@@ -162,6 +161,7 @@ void spawnPlayers( struct Player players[4] ){
 }
 
 void gameLoop(){
+
 	// General logic for movement, collision, rendering, input and timing.
 	struct Player players[4];
 	spawnPlayers(players);
@@ -197,25 +197,39 @@ void gameLoop(){
 
 void collision ( struct Player players[] ){
 	// Checks detection for all enabled players.
+	int playerAngle;
 	int i;
 	for ( i = 0; i < 4; i++ ){
 		if ( enabledPlayers[i] == 't' ){
-			playerCollision(i, players[i].x, players[i].y);
+			playerAngle = players[i].angle;
+			playerCollision(i, players[i].x, players[i].y, playerAngle);
 		}
 	}
 }
 
-void playerCollision( const int playerNr, const int x, const int y ){
+void playerCollision( const int playerNr, const int x, const int y, const int angle){
 	// Detects player's collision with any objects in the frame.
 	// Disables player once collision occurs.
 	struct Pair t = getPlayerIndex(x,y);
+	struct Direction dir = getDirection(angle);
 
 	int index = t.index;
 	int bitIn = t.bitIn;
 
+// 0 0 0 0
+// 0 1 1 0
+// 1 1 1 0
+// 1 1 0 0
+
 	uint8_t p = frame[index];
+
+	int d = 1;
+
+	// SÖDER OCH NORR FUNKAR
+	// WEST OCH OST FUNKAR
+
 	if( p > 0 ){
-		int collisionMask = p & (1 << bitIn);
+		int collisionMask = p & (d << bitIn);
 		if ( collisionMask ){
 			enabledPlayers[playerNr] = 'f';
 		}
@@ -223,7 +237,8 @@ void playerCollision( const int playerNr, const int x, const int y ){
 }
 
 struct Pair getPlayerIndex( const int x, const int y ){
-	// Returns calculated index position of a player in the frame array.
+	// Returns calculated index position of a player in the frame array,
+	// based on screen coordinates x,y.
 	int page = y / 8;
 	int bitIn = y % 8;
 
@@ -290,8 +305,10 @@ void movePlayers( struct Player players[4] ){
 }
 
 struct Direction getDirection(int a){
-	// Returns a direction depending on angle a.
+	// Returns a direction (NSWE) depending on angle a.
 	struct Direction dir;
+	dir.x_axis = 'f';
+	dir.y_axis = 'f';
 
 	if( a > 23 && a <= 150){
 		dir.x_axis = 'e';
@@ -316,13 +333,45 @@ void drawPlayers( struct Player players[4] ){
 	}
 }
 
+// 1 1 0 0
+// 1 1 1 0
+// 0 1 1 0
+// 0 0 0 0
+
+
 void draw(struct Player player){
 	struct Pair t = getPlayerIndex(player.x,player.y);
 	int index = t.index;
 	int bitIn = t.bitIn;
 	int a = player.angle;
+	struct Direction dir = getDirection( a );
+	int w = 1;
+	int d = 1;
 
-	frame[index] = frame[index] | (1 << bitIn);
+	if (dir.x_axis != 'f'){
+		d = 3;
+	}
+	if (dir.y_axis != 'f'){
+		w = 2;
+	}
+
+	if (dir.y_axis == 's'){
+		if (dir.x_axis == 'w'){
+			bitIn = bitIn - 1;
+		} else if (dir.x_axis == 'e'){
+		bitIn = bitIn - 1;
+		index = index - 1;
+		}
+	}
+
+	if (dir.y_axis == 'n' && dir.x_axis == 'e'){
+		index = index - 1;
+	}
+
+	int i;
+	for( i = 0; i < w; i++){
+		frame[index+i] = frame[index+i] | (d << bitIn);
+	}
 }
 
 void displaySettings(){
@@ -369,7 +418,6 @@ void getSettings(){
 		enabledPlayers[1] = 'f';
 	}
 
-
 	if( (swInput & 0x4) == 4){
 		enabledPlayers[2] = 't';
 		//displayString(2,"Player 3 [X]");
@@ -403,6 +451,7 @@ void menuLoop(){
 		int inptBtn = getBtns();
 		getSettings();
 		if ( inptBtn == 4 ){
+
 			break;
 		}
 
