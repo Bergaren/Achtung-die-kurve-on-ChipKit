@@ -3,6 +3,9 @@
 
 char textbuffer[4][16];
 
+// Main @AUTHOR: h4xxel@github
+// https://github.com/is1200-example-projects/hello-display
+
 static const uint8_t const font[] = {
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,

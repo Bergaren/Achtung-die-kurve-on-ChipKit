@@ -70,7 +70,7 @@ void wallCollision(const int playerNr, const int x, const int y);
 void playerCollision(const int playerNr, const int x, const int y, const int playerAngle);
 struct Pair getPlayerIndex(const int x, const int y);
 struct Direction getDirection(int a);
-void cntDown();
+void countDown();
 void clearScreen();
 void drawChar(int x, int y, char c);
 int winnerExists();
@@ -198,7 +198,7 @@ void gameLoop(){
 	// General logic for movement, collision, rendering, input and timing.
 	struct Player players[4];
 
-	cntDown();
+	countDown();
 
 	spawnPlayers(players);
 	int i;
@@ -266,33 +266,22 @@ void gameOver(){
 	}
 }
 
-void cntDown(){
-	//
-	// int timeout = 0;
-	// while(1){
-	// 	if((IFS(0)&0x100) == 256){
-    //     	timeout++;
-	// 		IFSCLR(0) = 0x100; // Clears bit 9.
-	// 	}
-	// 	if(timeout = 10000000){
-	// 		break;
-	// 	}
-	// }
-	//clearScreen();
+void countDown(){
+
 	displayString(1,"");
 	displayString(2,"");
 
-	if( enabledPlayers[0] == 't' && enabledPlayers[2] == 't'){
-		displayString(0,"p1         p3");
+	if( enabledPlayers[0] == 't' && enabledPlayers[3] == 't'){
+		displayString(0,"p1         p4");
 	}
 	if( enabledPlayers[0] == 't'){
 		displayString(0,"p1");
 	}
 	if( enabledPlayers[2] == 't' && enabledPlayers[1] == 't'){
-		displayString(3,"p4         p2");
+		displayString(3,"p3         p2");
 	}
-	if( enabledPlayers[3] == 't') {
-		displayString(3,"p4           ");
+	if( enabledPlayers[2] == 't') {
+		displayString(3,"p3           ");
 	}
 	if( enabledPlayers[1] == 't') {
 		displayString(3,"             p2");
